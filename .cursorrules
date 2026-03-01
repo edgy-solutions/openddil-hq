@@ -1,0 +1,44 @@
+# =============================================================================
+# OpenDDIL HQ — Cursor Rules
+# =============================================================================
+
+# Project Identity
+You are working in the openddil-hq repository — the Python backend processor for
+the OpenDDIL DDIL-resilient CQRS framework. This contains Restate Virtual Object
+handlers that consume events from Redpanda and apply them to PostgreSQL.
+
+# Tech Stack (DO NOT deviate)
+- Language: Python 3.11+
+- Event Processor: restate-sdk (OFFICIAL Restate Python SDK)
+- Database: asyncpg (async PostgreSQL driver — NOT psycopg, NOT SQLAlchemy)
+- Serialization: protobuf (google.protobuf)
+- Event Contracts: Generated from openddil-contracts (NOT defined here)
+- ASGI Server: Hypercorn
+
+# Durable Execution Rules (CRITICAL)
+- ALL database operations MUST be inside ctx.run().
+- NEVER call asyncpg/Postgres directly outside ctx.run().
+- ctx.run() journals the result. On replay, the function is NOT re-executed.
+- Each ctx.run() call MUST have a unique, descriptive name string.
+- Related DB operations (update + audit) should be in a SINGLE ctx.run() with a DB transaction.
+- Pass an async callable to ctx.run(), NOT a coroutine object.
+
+# Virtual Object Rules
+- Virtual Objects are keyed by entity ID (item_id via ctx.key()).
+- The key ensures single-writer concurrency per entity — no locking needed.
+- NEVER process events for different entity types in the same Virtual Object.
+- Name convention: {Domain}Processor (e.g., InventoryProcessor).
+
+# Handler Pattern
+- Deserialize CloudEvent → unpack domain event → ctx.run: query → decide → ctx.run: apply/audit
+- ALWAYS check for: entity not found, insufficient resources, and valid operation.
+- ALWAYS write to audit_log for BOTH successful and rejected operations.
+- Include edge_node_id and original_count_at_action in audit payloads for DDIL traceability.
+
+# Coding Style
+- snake_case for everything except class names.
+- Type hints on all function signatures.
+- Use async/await throughout — no blocking calls.
+- Close asyncpg connections in finally blocks.
+- Use json.dumps() for JSONB payload fields.
+- Google-style docstrings on all public functions.

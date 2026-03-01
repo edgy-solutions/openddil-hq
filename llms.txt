@@ -1,0 +1,40 @@
+# OpenDDIL HQ — llms.txt
+# https://llmstxt.org/
+
+> OpenDDIL HQ is the central event processor for the OpenDDIL framework.
+> It uses Restate Virtual Objects to durably consume events from Redpanda
+> and apply them to PostgreSQL with exactly-once guarantees.
+> Built entirely in Python, demonstrating the polyglot architecture
+> (C# Edge clients → Protobuf → Redpanda → Python HQ processor).
+
+## Project Purpose
+Backend processor for DDIL environments. Consumes Protobuf CloudEvent bytes from
+Redpanda, deserializes them, and applies domain logic to PostgreSQL with durable execution.
+
+## Architecture
+- Restate Virtual Object "InventoryProcessor" keyed by item_id
+- Single-writer concurrency per item (concurrent allocations queued automatically)
+- ctx.run() wraps every DB side effect for durable journaling
+- On crash replay, journaled operations are NOT re-executed (exactly-once)
+- Three outcomes: valid allocation, insufficient stock (compensating audit), item not found
+
+## Key Files
+- src/openddil_hq/inventory_handler.py: InventoryProcessor Virtual Object handler.
+- src/openddil_hq/__init__.py: Package init.
+
+## Dependencies
+- restate-sdk: Official Restate Python SDK.
+- asyncpg: Async PostgreSQL driver.
+- protobuf: Protobuf deserialization.
+- hypercorn: ASGI server.
+- Generated Python classes from openddil-contracts (make python).
+
+## Durable Execution Pattern
+- ALL database operations MUST be wrapped in ctx.run().
+- ctx.run("name", async_function) — name identifies the journal entry.
+- Inventory update + audit log are in a SINGLE ctx.run() with a DB transaction.
+- On replay: returns the journaled result WITHOUT re-executing the function.
+
+## Running
+- Serve: python -m hypercorn openddil_hq.inventory_handler:app --bind 0.0.0.0:9080
+- Register: POST http://localhost:9070/deployments {"uri": "http://host:9080"}

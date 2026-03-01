@@ -1,0 +1,26 @@
+﻿# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build
+bin/
+obj/
+__pycache__/
+*.pyc
+.eggs/
+*.egg-info/
+
+# Generated (protobuf)
+gen/
+
+# Environment
+.env
+.env.local
+venv/
+node_modules/
